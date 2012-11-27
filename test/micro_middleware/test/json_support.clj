@@ -96,7 +96,7 @@
 (deftest wrap-json-params-test
   (testing "should parse json body to map"
     (let [fixture {:a 1, :b 2}
-          handler (fn [req] {:headers {}, :body (:json-params req)})
+          handler (fn [req] {:headers {}, :body (:body-params req)})
           body* (.getBytes (json/generate-string fixture) "utf8")
           req (-> (request :post "/blah")
                   (header "Accept" "application/json")
@@ -107,7 +107,7 @@
       (is (= fixture (:body res)))))
   (testing "should parse json body to array"
     (let [fixture [1, 2, 3]
-          handler (fn [req] {:headers {}, :body (:json-params req)})
+          handler (fn [req] {:headers {}, :body (:body-params req)})
           body* (.getBytes (json/generate-string fixture) "utf8")
           req (-> (request :post "/blah")
                   (header "Accept" "application/json")

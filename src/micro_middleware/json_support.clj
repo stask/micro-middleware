@@ -49,5 +49,5 @@
   [handler]
   (fn [req]
     (handler (if (json-request? req)
-               (assoc req :json-params (parse-json-body (:body req)))
+               (assoc req :body-params (parse-json-body (:body req)))
                req))))
