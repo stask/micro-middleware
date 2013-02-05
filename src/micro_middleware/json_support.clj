@@ -39,7 +39,7 @@
   [req]
   (let [content-type (:content-type req)]
     (and (not (nil? content-type))
-         (not (empty? (re-find #"^application/(?:vnd.+)?json" content-type))))))
+         (not-empty (re-find #"^application/(?:vnd.+)?json" content-type)))))
 
 (defn parse-json-body
   [body]
