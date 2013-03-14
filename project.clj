@@ -1,4 +1,4 @@
-(defproject org.clojars.stask/micro-middleware "0.0.5"
+(defproject stask/micro-middleware "0.0.6"
   :description "Collection of middlewares"
   :url "http://github.com/stask/micro-middleware"
   :dependencies [[org.clojure/clojure "1.5.0"]
