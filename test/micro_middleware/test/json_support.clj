@@ -19,15 +19,23 @@
 (deftest should-encode-to-json?-test
   (testing "should return true if client accepts json"
     (let [req (-> (request :get "/blah")
-                  (header "Accept" "application/json"))]
-      (is (should-encode-to-json? req))))
+                  (header "Accept" "application/json"))
+          res {:body []}]
+      (is (should-encode-to-json? req res))))
   (testing "should return false if client doesn't accept json"
     (let [req (-> (request :get "/blah")
-                  (header "Accept" "text/plain"))]
-      (is (not (should-encode-to-json? req)))))
+                  (header "Accept" "text/plain"))
+          res {:body []}]
+      (is (not (should-encode-to-json? req res)))))
+  (testing "should return false if response is not array or hashmap"
+    (let [req (-> (request :get "/blah")
+                  (header "Accept" "application/json"))
+          res {:body "not object"}]
+      (is (not (should-encode-to-json? req res)))))
   (testing "should return true if client doesn't care"
-    (let [req (request :get "/blah")]
-      (is (should-encode-to-json? req)))))
+    (let [req (request :get "/blah")
+          res {:body []}]
+      (is (should-encode-to-json? req res)))))
 
 (deftest wrap-json-response-test
   (testing "should convert map to json string"

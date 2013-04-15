@@ -17,10 +17,11 @@
       {:type type, :subtype subtype})))
 
 (defn should-encode-to-json?
-  [req]
+  [req res]
   (let [accept-header (get-in req [:headers "accept"])
         {:keys [type subtype]} (parse-accept-header accept-header)]
     (and
+     (coll? (:body res))
      (or (= "application" type) (= "*" type))
      (or (= "json" subtype) (= "*" subtype)))))
 
@@ -28,7 +29,7 @@
   [handler]
   (fn [req]
     (let [{:keys [headers body] :as res} (handler req)]
-      (if (should-encode-to-json? req)
+      (if (should-encode-to-json? req res)
         (let [body* (.getBytes (json/generate-string body) "utf8")]
           (-> (assoc res :body (io/input-stream body*))
               (response/content-type "application/json; charset=utf8")
