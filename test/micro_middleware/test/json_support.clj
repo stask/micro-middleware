@@ -60,6 +60,13 @@
       (is (= "application/json; charset=utf8" content-type))
       (is (= 7 content-length))
       (is (= [1, 2, 3] body))))
+  (testing "should convert hyphens to underscores if asked"
+    (let [handler (fn [_] {:headers {} :body {:test-test 1}})
+          req (-> (request :get "/blah")
+                  (header "Accept" "application/json"))
+          res ((wrap-json-response handler :dehyphenize true) req)
+          body (json/parse-stream (io/reader (:body res)) true)]
+      (is (= {:test_test 1} body))))
   (testing "should not alter response if client didn't ask for json"
     (let [handler (fn [_]
                     (let [body* (.getBytes "Blah" "utf8")]
@@ -93,12 +100,12 @@
   (testing "should parse json body to map"
     (let [fixture {:a 1, :b 2}
           body* (io/input-stream (.getBytes (json/generate-string fixture) "utf8"))
-          json-params (parse-json-body body*)]
+          json-params (parse-json-body body* false)]
       (is (= fixture json-params))))
   (testing "should parse json body to array"
     (let [fixture [1, 2, 3]
           body* (io/input-stream (.getBytes (json/generate-string fixture) "utf8"))
-          json-params (parse-json-body body*)]
+          json-params (parse-json-body body* false)]
       (is (= fixture json-params)))))
 
 (deftest wrap-json-params-test
@@ -123,4 +130,15 @@
                   (content-length (count body*))
                   (body body*))
           res ((wrap-json-params handler) req)]
-      (is (= fixture (:body res))))))
+      (is (= fixture (:body res)))))
+  (testing "should convert underscores to hyphens if needed"
+    (let [fixture {:a_a 1, :b-b 2}
+          handler (fn [req] {:headers {}, :body (:body-params req)})
+          body* (.getBytes (json/generate-string fixture) "utf8")
+          req (-> (request :post "/blah")
+                  (header "Accept" "application/json")
+                  (content-type "application/json")
+                  (content-length (count body*))
+                  (body body*))
+          res ((wrap-json-params handler :hyphenize true) req)]
+      (is (= {:a-a 1, :b-b 2} (:body res))))))

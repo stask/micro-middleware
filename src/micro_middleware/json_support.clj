@@ -26,11 +26,14 @@
      (or (= "json" subtype) (= "*" subtype)))))
 
 (defn wrap-json-response
-  [handler]
+  [handler & {:keys [dehyphenize]}]
   (fn [req]
     (let [{:keys [headers body] :as res} (handler req)]
       (if (should-encode-to-json? req res)
-        (let [body* (.getBytes (json/generate-string body) "utf8")]
+        (let [json-opts (if dehyphenize
+                          {:key-fn #(s/replace (name %) #"-" "_")}
+                          {})
+              body* (.getBytes (json/generate-string body json-opts) "utf8")]
           (-> (assoc res :body (io/input-stream body*))
               (response/content-type "application/json; charset=utf8")
               (response/header "Content-Length" (count body*))))
@@ -43,12 +46,15 @@
          (not-empty (re-find #"^application/(?:vnd.+)?json" content-type)))))
 
 (defn parse-json-body
-  [body]
-  (json/parse-stream (io/reader body) true))
+  [body hyphenize]
+  (json/parse-stream (io/reader body)
+                     (if hyphenize
+                       #(keyword (s/replace % #"_" "-"))
+                       keyword)))
 
 (defn wrap-json-params
-  [handler]
+  [handler & {:keys [hyphenize]}]
   (fn [req]
     (handler (if (json-request? req)
-               (assoc req :body-params (parse-json-body (:body req)))
+               (assoc req :body-params (parse-json-body (:body req) hyphenize))
                req))))
