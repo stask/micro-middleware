@@ -2,7 +2,8 @@
   (:require [clojure.string :as s]
             [clojure.java.io :as io]
             [cheshire.core :as json]
-            [ring.util.response :as response]))
+            [ring.util.response :as response])
+  (:import (java.util.zip GZIPInputStream)))
 
 ;; Poor man Accept header parsing.
 ;; Proper parsing should implement http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
@@ -45,9 +46,17 @@
     (and (not (nil? content-type))
          (not-empty (re-find #"^application/(?:vnd.+)?json" content-type)))))
 
+(defn compressed?
+  [req]
+  (if-let [content-encoding (get-in req [:headers "content-encoding"])]
+    (not (nil? (re-find #"(?i)gzip" content-encoding)))
+    false))
+
 (defn parse-json-body
-  [body hyphenize]
-  (json/parse-stream (io/reader body)
+  [body decompress hyphenize]
+  (json/parse-stream (io/reader (if decompress
+                                  (GZIPInputStream. body)
+                                  body))
                      (if hyphenize
                        #(keyword (s/replace % #"_" "-"))
                        keyword)))
@@ -56,5 +65,7 @@
   [handler & {:keys [hyphenize]}]
   (fn [req]
     (handler (if (json-request? req)
-               (assoc req :body-params (parse-json-body (:body req) hyphenize))
+               (assoc req :body-params (parse-json-body (:body req)
+                                                        (compressed? req)
+                                                        hyphenize))
                req))))

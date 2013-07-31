@@ -1,9 +1,18 @@
 (ns micro-middleware.test.json-support
-  (:use micro-middleware.json-support
-        clojure.test
-        ring.mock.request)
   (:require [clojure.java.io :as io]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [clojure.test :refer :all]
+            [ring.mock.request :refer :all]
+            [micro-middleware.json-support :refer :all])
+  (:import (java.io ByteArrayOutputStream)
+           (java.util.zip GZIPOutputStream)))
+
+(defn- compress [in]
+  (with-open [out (ByteArrayOutputStream.)
+              gzip (GZIPOutputStream. out)]
+    (.write gzip (.getBytes in "utf8"))
+    (.finish gzip)
+    (.toByteArray out)))
 
 (deftest parse-accept-header-test
   (testing "application/json;level=1;q=1"
@@ -96,16 +105,35 @@
                   (content-type "application/x-www-form-urlencoded"))]
       (is (not (json-request? req))))))
 
+(deftest compressed?-test
+  (testing "should return true if request content-encoding is gzip"
+    (let [body* (compress (json/generate-string {:a 1, :b 2}))
+          req (-> (request :post "/blah")
+                  (content-type "application/json")
+                  (header "Content-Encoding" "gzip")
+                  (content-length (count body*))
+                  (body body*))]
+      (is (compressed? req))))
+  (testing "should return false if request content-encoding is not gzip"
+    (let [req (-> (request :get "/blah")
+                  (content-type "application/json"))]
+      (is (not (compressed? req))))))
+
 (deftest parse-json-params-test
   (testing "should parse json body to map"
     (let [fixture {:a 1, :b 2}
           body* (io/input-stream (.getBytes (json/generate-string fixture) "utf8"))
-          json-params (parse-json-body body* false)]
+          json-params (parse-json-body body* false false)]
       (is (= fixture json-params))))
   (testing "should parse json body to array"
     (let [fixture [1, 2, 3]
           body* (io/input-stream (.getBytes (json/generate-string fixture) "utf8"))
-          json-params (parse-json-body body* false)]
+          json-params (parse-json-body body* false false)]
+      (is (= fixture json-params))))
+  (testing "should parse compressed json body to map"
+    (let [fixture {:a 1, :b 2}
+          body* (io/input-stream (compress (json/generate-string fixture)))
+          json-params (parse-json-body body* true false)]
       (is (= fixture json-params)))))
 
 (deftest wrap-json-params-test
@@ -141,4 +169,16 @@
                   (content-length (count body*))
                   (body body*))
           res ((wrap-json-params handler :hyphenize true) req)]
-      (is (= {:a-a 1, :b-b 2} (:body res))))))
+      (is (= {:a-a 1, :b-b 2} (:body res)))))
+  (testing "should parse compressed json body to map"
+    (let [fixture {:a 1, :b 2}
+          handler (fn [req] {:headers {}, :body (:body-params req)})
+          body* (compress (json/generate-string fixture))
+          req (-> (request :post "/blah")
+                  (header "Accept" "application/json")
+                  (content-type "application/json")
+                  (header "Content-Encoding" "gzip")
+                  (content-length (count body*))
+                  (body body*))
+          res ((wrap-json-params handler) req)]
+      (is (= fixture (:body res))))))
