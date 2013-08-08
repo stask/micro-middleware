@@ -3,7 +3,8 @@
             [cheshire.core :as json]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
-            [micro-middleware.json-support :refer :all])
+            [micro-middleware.json-support :refer :all]
+            [clj-time.core :as t])
   (:import (java.io ByteArrayOutputStream)
            (java.util.zip GZIPOutputStream)))
 
@@ -76,6 +77,13 @@
           res ((wrap-json-response handler :dehyphenize true) req)
           body (json/parse-stream (io/reader (:body res)) true)]
       (is (= {:test_test 1} body))))
+  (testing "should encode joda time"
+    (let [handler (fn [_] {:headers {} :body {:time (t/now)}})
+          req (-> (request :get "/blah")
+                  (header "Accept" "application/json"))
+          res ((wrap-json-response handler) req)
+          body (json/parse-stream (io/reader (:body res)) true)]
+      (is (contains? body :time))))
   (testing "should not alter response if client didn't ask for json"
     (let [handler (fn [_]
                     (let [body* (.getBytes "Blah" "utf8")]

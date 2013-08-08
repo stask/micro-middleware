@@ -2,8 +2,17 @@
   (:require [clojure.string :as s]
             [clojure.java.io :as io]
             [cheshire.core :as json]
+            [cheshire.generate :as jg]
             [ring.util.response :as response])
-  (:import (java.util.zip GZIPInputStream)))
+  (:import (java.util.zip GZIPInputStream)
+           (org.joda.time DateTime)
+           (org.joda.time.format ISODateTimeFormat)))
+
+;; adopted from https://github.com/clojurewerkz/support/blob/master/src/clojure/clojurewerkz/support/json.clj
+(jg/add-encoder DateTime
+                (fn [dt generator]
+                  (.writeString generator
+                                (.print (ISODateTimeFormat/dateTime) dt))))
 
 ;; Poor man Accept header parsing.
 ;; Proper parsing should implement http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
